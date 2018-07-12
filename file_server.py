@@ -162,7 +162,9 @@ path_view = PathView.as_view('path_view')
 app.add_url_rule('/', view_func=path_view)
 app.add_url_rule('/<path:p>', view_func=path_view)
 
-app.run('0.0.0.0', 8000, threaded=True, debug=False)
-                          
+#app.run('0.0.0.0', 8000, threaded=True, debug=False)
+         
+
+app.run('0.0.0.0', 80, threaded=True, debug=False)    
 #if __name__=="__file_server__":
 #    app.run()                         
