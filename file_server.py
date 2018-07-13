@@ -1,7 +1,10 @@
-from flask import Flask, make_response, request, session, render_template, send_file, Response
+from flask import Flask, make_response, request, session, render_template, send_file, Response, redirect
 from flask.views import MethodView
 from werkzeug import secure_filename
 from datetime import datetime
+from requests import get
+from xml.dom import minidom
+import urllib2
 import humanize
 import os
 import re
@@ -10,7 +13,8 @@ import json
 import mimetypes
 
 app = Flask(__name__, static_url_path='/assets', static_folder='assets')
-root = os.path.expanduser('.')
+root = os.path.expanduser('')
+
 
 ignored = ['.bzr', '$RECYCLE.BIN', '.DAV', '.DS_Store', '.git', '.hg', '.htaccess', '.htpasswd', '.Spotlight-V100', '.svn', '__MACOSX', 'ehthumbs.db', 'robots.txt', 'Thumbs.db', 'thumbs.tps']
 datatypes = {'audio': 'm4a,mp3,oga,ogg,webma,wav', 'archive': '7z,zip,rar,gz,tar', 'image': 'gif,ico,jpe,jpeg,jpg,png,svg,webp', 'pdf': 'pdf', 'quicktime': '3g2,3gp,3gp2,3gpp,mov,qt', 'source': 'atom,bat,bash,c,cmd,coffee,css,hml,js,json,java,less,markdown,md,php,pl,py,rb,rss,sass,scpt,swift,scss,sh,xml,yml,plist', 'text': 'txt', 'video': 'mp4,m4v,ogv,webm', 'website': 'htm,html,mhtm,mhtml,xhtm,xhtml'}
@@ -96,11 +100,96 @@ def get_range(request):
     else:
         return 0, None
 
+test_list = ['artifact1.tar.gz', 'test/artifact2.tar.gz', 'test/artifact3.tar.gz', 'test/folder/artifact4.tar.gz','test/folder/artifact5.tar.gz', 'test/folder/folder2/artifact6.tar.gz', 'test/folder/folder3/artifact7.tar.gz'] # 
+
+storage_name = "staragee1"
+container_name = "container1"
+
+xml_url = 'https://%s.blob.core.windows.net/%s?restype=container&comp=list' % (storage_name, container_name)
+download_link = 'https://%s.blob.core.windows.net/%s/%s' % (storage_name, container_name, file)
+
+def xml_bring_names(link):
+    artifact_list = []
+    xmldoc = minidom.parse(urllib2.urlopen(link))
+    itemlist = xmldoc.getElementsByTagName('Name')
+
+    max_count = len(itemlist)
+    current_count = 0
+    for current_count in range(max_count):
+        file = str(itemlist[current_count].childNodes[0].nodeValue)
+        print(file)
+        artifact_list.append(file)
+    return artifact_list
+
+
+def get_all_folders(somelist): #  get list of all folders, based on xml
+    dirlist = []
+    for elem in somelist:
+        folder = os.path.dirname(elem) + "/"
+        dirlist.append(folder)
+    unique = list(set(dirlist))
+    updated = ["" if elem == "/" else elem for elem in unique]
+    return updated
+
+
+def get_files_list(somelist, dir=''): #  get all files and folders from $dir
+    file_list = []
+    dir_list = []
+    my_regex = re.compile(r"%s(\w+\/)" % (dir + "/"))
+
+    for elem in somelist:
+        if dir in elem:
+            if os.path.dirname(elem) == dir:
+                file_list.append(os.path.basename(elem))
+            else:
+                if dir == "":
+                    elem = "/" + elem
+                result = my_regex.match(elem)
+                dir_list.append(result.group(1))
+
+    dir_list = list(set(dir_list))
+
+    for x in dir_list:
+        file_list.append(x)
+    return file_list
+
+
+def dir_or_file(somestring):
+    if somestring[-1] == "/":
+        return "dir"
+    else:
+        return "file"
+
+
 class PathView(MethodView):
     def get(self, p=''):
         hide_dotfile = request.args.get('hide-dotfile', request.cookies.get('hide-dotfile', 'no'))
 
         path = os.path.join(root, p)
+        files = xml_bring_names(xml_url)
+
+        if path in get_all_folders(files):
+            contents = []
+            for filename in get_files_list(files, path[:-1]):
+                info = {}
+                info['type'] = dir_or_file(filename)
+                if info['type'] == "dir":
+                    info['name'] = filename[:-1]
+                else:
+                    info['name'] = filename
+                print(info)
+                contents.append(info)
+            page = render_template('index.html', path=p, contents=contents, hide_dotfile=hide_dotfile)
+            result = make_response(page, 200)
+            result.set_cookie('hide-dotfile', hide_dotfile, max_age=16070400)
+        elif path in files:
+            download_link = 'https://%s.blob.core.windows.net/%s/%s' % (storage_name, container_name, path)
+            result = redirect(download_link, 301)
+        else:
+            result = make_response('Not found', 404)
+        return result
+
+    '''
         if os.path.isdir(path):
             contents = []
             total = {'size': 0, 'dir': 0, 'file': 0}
@@ -133,8 +222,9 @@ class PathView(MethodView):
                 res.headers.add('Content-Disposition', 'attachment')
         else:
             res = make_response('Not found', 404)
+        print(contents)
         return res
-
+    '''
     def post(self, p=''):
         path = os.path.join(root, p)
         info = {}
