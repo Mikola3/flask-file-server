@@ -102,7 +102,7 @@ def get_range(request):
 
 test_list = ['artifact1.tar.gz', 'test/artifact2.tar.gz', 'test/artifact3.tar.gz', 'test/folder/artifact4.tar.gz','test/folder/artifact5.tar.gz', 'test/folder/folder2/artifact6.tar.gz', 'test/folder/folder3/artifact7.tar.gz'] # 
 
-storage_name = "staragee1"
+storage_name = "storagee1"
 container_name = "container1"
 
 xml_url = 'https://%s.blob.core.windows.net/%s?restype=container&comp=list' % (storage_name, container_name)
