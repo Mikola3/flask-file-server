@@ -1,7 +1,8 @@
-#flask-file-server
+# Python Flask app on Local System (read file system Azure Storage)
 
-A flask file server with an elegant frontend for browsing, uploading and streaming files
+# Usage
+export FLASK_APP=main.py
 
-![screenshot](https://raw.githubusercontent.com/Wildog/flask-file-server/master/screenshot.jpg)
+flask run --host=192.168.56.15 & # 192.168.56.15 - ip host where run app
 
-
+ps
